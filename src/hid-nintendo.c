@@ -410,6 +410,7 @@ struct joycon_ctlr {
 	struct input_dev *input;
 	struct led_classdev leds[JC_NUM_LEDS]; /* player leds */
 	struct led_classdev home_led;
+	bool home_led_broken;
 	enum joycon_ctlr_state ctlr_state;
 	spinlock_t lock;
 	u8 mac_addr[6];
@@ -1785,6 +1786,10 @@ static int joycon_home_led_brightness_set(struct led_classdev *led,
 		return -ENODEV;
 	}
 
+	if (ctlr->home_led_broken) {
+	  return 0;
+	}
+
 	req = (struct joycon_subcmd_request *)buffer;
 	req->subcmd_id = JC_SUBCMD_SET_HOME_LIGHT;
 	data = req->data;
@@ -1872,12 +1877,13 @@ static int joycon_leds_create(struct joycon_ctlr *ctlr)
 			hid_err(hdev, "Failed registering home led\n");
 			return ret;
 		}
+
 		/* Set the home LED to 0 as default state */
 		ret = joycon_home_led_brightness_set(led, 0);
 		if (ret) {
-			hid_err(hdev, "Failed to set home LED dflt; ret=%d\n",
+			hid_err(hdev, "Failed to set home LED dflt, marking as broken; ret=%d\n",
 									ret);
-			return ret;
+			ctlr->home_led_broken = true;
 		}
 	}
 
